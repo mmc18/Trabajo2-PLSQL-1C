@@ -137,6 +137,7 @@ begin
 end;
 /
 
+
 ------ Deja aquí tus respuestas a las preguntas del enunciado:
 -- * P4.1
 --
@@ -191,8 +192,8 @@ begin
     insert into abonos values (seq_abonos.nextval, '12345678A',10);
     insert into abonos values (seq_abonos.nextval, '11111111B',0);
     
-    insert into eventos values ( seq_eventos.nextval, 'concierto_la_moda', date '2023-6-27', 200);
-    insert into eventos values ( seq_eventos.nextval, 'teatro_impro', date '2023-7-1', 50);
+    insert into eventos values ( seq_eventos.nextval, 'concierto_la_moda', date '2024-6-27', 200);
+    insert into eventos values ( seq_eventos.nextval, 'teatro_impro', date '2024-7-1', 50);
 
     commit;
 end;
@@ -214,22 +215,58 @@ begin
   --caso 2 Evento pasado
   begin
     inicializa_test;
+    reservar_evento('12345678A','teatro_impro','2023-8-1');
+    dbms_output.put_line('Mal no detecta EVENTO_FINALIZADO');
+  exception
+    when others then
+      if sqlcode = -20001 then
+        dbms_output.put_line('Detecta OK EVENTO_FINALIZADO: '||sqlerrm);
+      else
+        dbms_output.put_line('Mal no detecta EVENTO_FINALIZADO: '||sqlerrm);
+      end if;
   end;
   
   --caso 3 Evento inexistente
   begin
     inicializa_test;
+    reservar_evento('12345678A','el_rey_leon','2024-7-1');
+    dbms_output.put_line('Mal no detecta EVENTO_INEXISTENTE');
+  exception
+    when others then
+      if sqlcode = -20003 then
+        dbms_output.put_line('Detecta OK EVENTO_INEXISTENTE: '||sqlerrm);
+      else
+        dbms_output.put_line('Mal no detecta EVENTO_INEXISTENTE: '||sqlerrm);
+      end if;
   end;
   
 
   --caso 4 Cliente inexistente  
   begin
     inicializa_test;
+    reservar_evento('12345678B','teatro_impro','2024-7-1');
+    dbms_output.put_line('Mal no detecta CLIENTE_INEXISTENTE');
+  exception
+    when others then
+      if sqlcode = -20002 then
+        dbms_output.put_line('Detecta OK CLIENTE_INEXISTENTE: '||sqlerrm);
+      else
+        dbms_output.put_line('Mal no detecta CLIENTE_INEXISTENTE: '||sqlerrm);
+      end if;
   end;
   
   --caso 5 El cliente no tiene saldo suficiente
   begin
     inicializa_test;
+    reservar_evento('11111111B','teatro_impro','2024-7-1');
+    dbms_output.put_line('Mal no detecta SIN_SALDO');
+  exception
+    when others then
+      if sqlcode = -20004 then
+        dbms_output.put_line('Detecta OK SIN_SALDO: '||sqlerrm);
+      else
+        dbms_output.put_line('Mal no detecta SIN_SALDO: '||sqlerrm);
+      end if;
   end;
 
   
