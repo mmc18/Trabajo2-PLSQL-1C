@@ -140,15 +140,15 @@ end;
 
 ------ Deja aquí tus respuestas a las preguntas del enunciado:
 -- * P4.1
---
+-- Sigue siendo fiable puesto que de no ser así habría saltado una excepción.
 -- * P4.2
---
--- * P4.3
---
--- * P4.4
---
--- * P4.5
 -- 
+-- * P4.3
+-- Se usa una estrategia de programación defensiva.
+-- * P4.4
+-- Se hacen las comprobaciones antes de realizar cambios en la base de datos.
+-- * P4.5
+-- Se podría realizar de forma agresiva en vez de defensiva.
 
 
 create or replace
