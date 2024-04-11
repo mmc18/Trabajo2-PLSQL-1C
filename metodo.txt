@@ -65,7 +65,7 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
  PRAGMA EXCEPTION_INIT(SIN_SALDO, -20004);
  
  fecha_evento date;
- NIF_cliente varchar;
+ NIF_cliente varchar(9);
  saldo_abono_cliente integer;
  abono_cliente integer;
  
@@ -116,6 +116,8 @@ begin
   
   INSERT INTO reservas VALUES(seq_reservas.nextval, NIF_cliente, arg_nombre_evento, abono_cliente, fecha_evento);
   
+  commit;
+  
   exception
   when EVENTO_FINALIZADO then
     rollback;
@@ -131,7 +133,11 @@ begin
         
   when SIN_SALDO then
     rollback;
-    raise_application_error(-20004,'Saldo en abono insuficiente');
+    raise_application_error(-20004,'Saldo en abono insuficiente.');
+    
+  when others then 
+    rollback;
+    raise;
   end;
   
 end;
@@ -150,9 +156,11 @@ end;
 -- Se usa una estrategia de programación defensiva, la cual previene errores realizando comprobaciones
 -- de forma previa a cualquier acción.
 -- * P4.4
--- Se hacen las comprobaciones antes de realizar cambios en la base de datos.
+-- Se hacen las comprobaciones utilizando sentencias if para verificar la existencia del evento, del 
+-- cliente y el saldo suficiente en el abono antes de realizar la reserva.
 -- * P4.5
--- Se podría realizar de forma agresiva en vez de defensiva.
+-- Se podría realizar mediante la estrategia que delega las comprobaciones en el tratamiento de excepciones
+-- en vez de usar una estrategia basada en la programación defensiva.
 
 
 create or replace
@@ -213,7 +221,7 @@ begin
   --caso 1 Reserva correcta, se realiza
   begin
     inicializa_test;
-    reservar_evento('12345678A','teatro_impro','2024-7-1');
+    reservar_evento('12345678A','teatro_impro',to_date('2024-07-01','YYYY-MM-DD'));
   exception
     when others then
       if sqlcode = 0 then
@@ -227,7 +235,7 @@ begin
   --caso 2 Evento pasado
   begin
     inicializa_test;
-    reservar_evento('12345678A','teatro_impro','2023-8-1');
+    reservar_evento('12345678A','teatro_impro',to_date('2023-08-01','YYYY-MM-DD'));
     dbms_output.put_line('Mal no detecta EVENTO_FINALIZADO');
   exception
     when others then
@@ -241,7 +249,7 @@ begin
   --caso 3 Evento inexistente
   begin
     inicializa_test;
-    reservar_evento('12345678A','el_rey_leon','2024-7-1');
+    reservar_evento('12345678A','el_rey_leon',to_date('2024-07-01','YYYY-MM-DD'));
     dbms_output.put_line('Mal no detecta EVENTO_INEXISTENTE');
   exception
     when others then
@@ -256,7 +264,7 @@ begin
   --caso 4 Cliente inexistente  
   begin
     inicializa_test;
-    reservar_evento('12345678B','teatro_impro','2024-7-1');
+    reservar_evento('12345678B','teatro_impro',to_date('2024-07-01','YYYY-MM-DD'));
     dbms_output.put_line('Mal no detecta CLIENTE_INEXISTENTE');
   exception
     when others then
@@ -270,7 +278,7 @@ begin
   --caso 5 El cliente no tiene saldo suficiente
   begin
     inicializa_test;
-    reservar_evento('11111111B','teatro_impro','2024-7-1');
+    reservar_evento('11111111B','teatro_impro',to_date('2024-07-01','YYYY-MM-DD'));
     dbms_output.put_line('Mal no detecta SIN_SALDO');
   exception
     when others then
