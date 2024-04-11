@@ -140,11 +140,15 @@ end;
 
 ------ Deja aquí tus respuestas a las preguntas del enunciado:
 -- * P4.1
--- Sigue siendo fiable puesto que de no ser así habría saltado una excepción.
+-- Sigue siendo fiable puesto que todas las acciones del paso 3 se han llevado a cabo,ya que no
+-- ha saltado ninguna excepción en el paso 2. De haber saltado una excepción, habría sido atrapada
+-- en el bloque "exception".
 -- * P4.2
--- 
+-- Esto ocurriría en caso de que otro proceso realizase una reserva entre la comprobación del paso 2 y
+-- la ejecución del paso 3 que redujese el saldo o las plazas del evento.
 -- * P4.3
--- Se usa una estrategia de programación defensiva.
+-- Se usa una estrategia de programación defensiva, la cual previene errores realizando comprobaciones
+-- de forma previa a cualquier acción.
 -- * P4.4
 -- Se hacen las comprobaciones antes de realizar cambios en la base de datos.
 -- * P4.5
@@ -209,6 +213,14 @@ begin
   --caso 1 Reserva correcta, se realiza
   begin
     inicializa_test;
+    reservar_evento('12345678A','teatro_impro','2024-7-1');
+  exception
+    when others then
+      if sqlcode = 0 then
+        dbms_output.put_line('Detecta OK reserva: '||sqlerrm);
+      else
+        dbms_output.put_line('Mal no detecta reserva: '||sqlerrm);
+      end if;
   end;
   
   
