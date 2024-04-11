@@ -1,3 +1,5 @@
+-- Repositorio de Github: https://github.com/mmc18/Trabajo2-PLSQL-1C.git
+
 drop table clientes cascade constraints;
 drop table abonos   cascade constraints;
 drop table eventos  cascade constraints;
@@ -52,84 +54,94 @@ create or replace procedure reservar_evento( arg_NIF_cliente varchar,
  arg_nombre_evento varchar, arg_fecha date) is
  
  --Declaración de excepciones
- EVENTO_FINALIZADO      exception;
+ EVENTO_FINALIZADO      exception;      -- Es lanzada si el evento tiene una fecha menor a la actual.
  PRAGMA EXCEPTION_INIT(EVENTO_FINALIZADO, -20001);
  
- EVENTO_INEXISTENTE    exception;
+ EVENTO_INEXISTENTE    exception;       -- Es lanzada si el evento no existe.
  PRAGMA EXCEPTION_INIT(EVENTO_INEXISTENTE, -20003);
  
- CLIENTE_INEXISTENTE    exception;
+ CLIENTE_INEXISTENTE    exception;      -- Es lanzada si el cliente no existe.
  PRAGMA EXCEPTION_INIT(CLIENTE_INEXISTENTE, -20002);
  
- SIN_SALDO   exception;
+ SIN_SALDO   exception;     --Es lanzada si el cliente seleccionado no tiene saldo.
  PRAGMA EXCEPTION_INIT(SIN_SALDO, -20004);
  
  fecha_evento date;
  NIF_cliente varchar(9);
  saldo_abono_cliente integer;
  abono_cliente integer;
+ idEvento integer;
+ flag integer:= 0;
  
 begin 
  
  begin
+  -- Lanza una excepción not data found. Para poder recoger y distinguir entre EVENTO_INEXISTENTE y CLIENTE_INEXISTENTE
+  -- en este select flag=0.
   SELECT fecha into fecha_evento
   FROM eventos
   WHERE nombre_evento = arg_nombre_evento;
   
+  -- Flag cambia de valor a 1 para CLIENTE_INEXISTENTE.
+  flag:=1;
+  
+  -- Comprueba que exista el cliente.
   SELECT NIF into NIF_cliente
   FROM clientes
   WHERE NIF = arg_NIF_cliente;  
     
+  -- Comprueba el saldo del cliente.
   SELECT saldo into saldo_abono_cliente
   FROM abonos
   WHERE cliente = NIF_cliente; 
   
   /*Excepcion 1*/
-  if fecha_evento < arg_fecha then 
+  if fecha_evento > arg_fecha then 
     raise EVENTO_FINALIZADO;
     end if;
   
-  /*Excepcion 2*/
-  if fecha_evento is null then 
-    raise EVENTO_INEXISTENTE;
-    end if;
-    
-  /*Excepcion 3*/
-  if NIF_cliente is null then 
-    raise CLIENTE_INEXISTENTE;
-    end if;
-    
   /*Excepcion 4*/
   if saldo_abono_cliente <= 0 then 
     raise SIN_SALDO;
     end if; 
   
+  -- Comprueba el abono del cliente.
   SELECT id_abono into abono_cliente
   FROM abonos
   WHERE cliente = NIF_cliente; 
   
+  -- Comprueban el id del evento correspondiente al nombre.
+  SELECT id_evento into idEvento
+  FROM eventos
+  WHERE nombre_evento = arg_nombre_evento;
+  
+  -- Se descuenta una unidad del saldo del abono del cliente.
   UPDATE abonos SET saldo=saldo-1
   WHERE cliente = NIF_cliente;
   
+  -- Se descuenta una unidad del número de plazas disponibles del evento.
   UPDATE eventos SET asientos_disponibles=asientos_disponibles-1
   WHERE nombre_evento = arg_nombre_evento;
   
-  INSERT INTO reservas VALUES(seq_reservas.nextval, NIF_cliente, arg_nombre_evento, abono_cliente, fecha_evento);
+  -- Se añade una reserva a la tabla de reservas.
+  INSERT INTO reservas VALUES(seq_reservas.nextval, NIF_cliente, idEvento, abono_cliente, fecha_evento);
   
   commit;
   
+  -- Captura de las excepciones lanzadas.
   exception
   when EVENTO_FINALIZADO then
     rollback;
     raise_application_error(-20001,'No se pueden reservar eventos pasados.');
     
-  when EVENTO_INEXISTENTE then
-    rollback;
-    raise_application_error(-20003,'El evento '||arg_nombre_evento||' no existe.');
-    
-  when CLIENTE_INEXISTENTE then
-    rollback;
-    raise_application_error(-20002,'Cliente inexistente.');
+  when NO_DATA_FOUND then
+    if flag = 0 then
+        rollback;
+        raise_application_error(-20003,'El evento '||arg_nombre_evento||' no existe.');
+    else
+        rollback;
+        raise_application_error(-20002,'Cliente inexistente.');
+    end if;
         
   when SIN_SALDO then
     rollback;
@@ -219,20 +231,21 @@ create or replace procedure test_reserva_evento is
 begin
 	 
   --caso 1 Reserva correcta, se realiza
+  -- Imprime por pantalla Detecta OK reserva: si se ha hecho
+  -- la reserva correctamente sino imprime Mal no detecta reserva
   begin
     inicializa_test;
     reservar_evento('12345678A','teatro_impro',to_date('2024-07-01','YYYY-MM-DD'));
+    dbms_output.put_line('Detecta OK reserva: '||sqlerrm);
   exception
     when others then
-      if sqlcode = 0 then
-        dbms_output.put_line('Detecta OK reserva: '||sqlerrm);
-      else
-        dbms_output.put_line('Mal no detecta reserva: '||sqlerrm);
-      end if;
+      dbms_output.put_line('Mal no detecta reserva: '||sqlerrm);
   end;
   
   
   --caso 2 Evento pasado
+  -- Imprime por pantalla Detecta OK EVENTO_FINALIZADO: si el evento que se intenta
+  -- reservar ya ha acabado sino imprime Mal no detecta EVENTO_FINALIZADO
   begin
     inicializa_test;
     reservar_evento('12345678A','teatro_impro',to_date('2023-08-01','YYYY-MM-DD'));
@@ -247,6 +260,8 @@ begin
   end;
   
   --caso 3 Evento inexistente
+  -- Imprime por pantalla Detecta OK EVENTO_INEXISTENTE: si el evento que se intenta
+  -- reservar no existe sino imprime Mal no detecta EVENTO_INEXISTENTE:
   begin
     inicializa_test;
     reservar_evento('12345678A','el_rey_leon',to_date('2024-07-01','YYYY-MM-DD'));
@@ -262,6 +277,8 @@ begin
   
 
   --caso 4 Cliente inexistente  
+  -- Imprime por pantalla Detecta OK CLIENTE_INEXISTENTE: si el usuario que quiere reservar
+  -- no existe sino imprime Mal no detecta CLIENTE_INEXISTENTE
   begin
     inicializa_test;
     reservar_evento('12345678B','teatro_impro',to_date('2024-07-01','YYYY-MM-DD'));
@@ -276,6 +293,8 @@ begin
   end;
   
   --caso 5 El cliente no tiene saldo suficiente
+  -- Imprime por pantalla Detecta OK SIN_SALDO: si no se tiene suficiente saldo sino imprime 
+  -- Mal no detecta SIN_SALDO
   begin
     inicializa_test;
     reservar_evento('11111111B','teatro_impro',to_date('2024-07-01','YYYY-MM-DD'));
